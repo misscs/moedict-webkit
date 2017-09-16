@@ -671,15 +671,17 @@ window.do-load = ->
         out: -> try $(@).tooltip \close
 
   fill-json = (part, id, cb) ->
+    sentence = JSON.parse(part).h[0].d[0].e[0]
     part = React.View.decodeLangPart LANG, part
     reactProps = null
+    debugger
     if part is /^\[\s*\[/
-      reactProps = { id, type: \radical, terms: part, H: HASH-OF[LANG] }
+      reactProps = { id, type: \radical, terms: part, H: HASH-OF[LANG], sentence: sentence }
     else if part is /^\[/
-      reactProps = { id, type: \list, terms: part, H: HASH-OF[LANG], LRU: LRU[LANG] }
+      reactProps = { id, type: \list, terms: part, H: HASH-OF[LANG], LRU: LRU[LANG], sentence: sentence }
     else
       xrefs = [ { lang, words } for lang, words of xref-of id | words.length ]
-      reactProps = { id, xrefs, LANG, type: \term, H: HASH-OF[LANG] } <<< $.parseJSON part
+      reactProps = { id, xrefs, LANG, sentence, type: \term, H: HASH-OF[LANG] } <<< $.parseJSON part
     return cb React.renderToString React.View.Result(reactProps) if cb
     return React.View.result?replaceProps reactProps, bind-html-actions if React.View.result
     React.View.result = React.render React.View.Result(reactProps), $(\#result).0, bind-html-actions

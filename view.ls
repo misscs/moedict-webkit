@@ -40,7 +40,7 @@ Result = createClass do
 
 Term = createClass do
   render: ->
-    { LANG, H=HASH-OF[LANG], title, english, heteronyms, radical, translation, non_radical_stroke_count: nrs-count, stroke_count: s-count, pinyin: py, xrefs, tag, stem } = @props
+    { LANG, H=HASH-OF[LANG], sentence, title, sentence, english, heteronyms, radical, translation, non_radical_stroke_count: nrs-count, stroke_count: s-count, pinyin: py, xrefs, tag, stem } = @props
     H -= /^#/
     H = "#DotSlash##H"
     CurrentId := @props.id # Used in h()
@@ -60,7 +60,7 @@ Term = createClass do
     else div { className: \radical }, a-stroke
     heteronyms = [heteronyms] unless heteronyms instanceof Array
     list = for props, key in heteronyms
-      Heteronym { key, $char, H, LANG, title, py, english, CurrentId, stem } <<< props
+      Heteronym { key, $char, H, LANG, title, sentence, py, english, CurrentId, stem } <<< props
     list ++= XRefs { LANG, xrefs } if xrefs?length
     list ++= Translations { translation } if translation
     return div-inline {}, ...list
@@ -103,7 +103,7 @@ XRefs = createClass do
 
 Star = createClass do
   render: ->
-    { CurrentId, LANG } = @props
+    { CurrentId, LANG, sentence } = @props
     STARRED = window?STARRED || {}
     if STARRED[LANG] and ~STARRED[LANG].indexOf("\"#CurrentId\"")
       return i { className: "star iconic-color icon-star", title: \已加入記錄簿 }
@@ -112,7 +112,7 @@ Star = createClass do
 Heteronym = createClass do
   render: ->
     { CurrentId, key, $char, H, LANG, title, english,
-    id, audio_id=id, bopomofo, trs='', py, pinyin=py||trs||'',
+    id, sentence, audio_id=id, bopomofo, trs='', py, pinyin=py||trs||'',
     definitions=[], antonyms, synonyms, variants, specific_to, alt,
     stem
     } = @props
@@ -132,7 +132,8 @@ Heteronym = createClass do
         pinyin-list ++= span { dangerouslySetInnerHTML: { __html } }
 
     title = "<div class='stroke' title='筆順動畫'>#title</div>" unless title is /</
-    t = untag h title
+    # debugger
+    t = untag h title, sentence
     { ruby: title-ruby, youyin, b-alt, p-alt, cn-specific, bopomofo, pinyin } = decorate-ruby @props unless LANG is \h
     list = [ if title-ruby
       RightAngle { html: h title-ruby }
@@ -568,7 +569,9 @@ http-map =
 
 http-map <<< window.moedictDesktop.voices if isMoedictDesktop
 http = -> "http#{if not isMoedictDesktop or it.match(/^([^.]+)\.[^\/]+/).1 not of window.moedictDesktop.voices then "s" else ""}://#{ it.replace(/^([^.]+)\.[^\/]+/, (xs,x) -> http-map[x] or xs ) }"
-function h (it)
+
+function h (it, sentence)
+  # debugger
   id = CurrentId
   it += '</span></span></span></span>' if it is /\uFFF9/
   res = it.replace(/[\uFF0E\u2022]/g '\u00B7').replace(/\u223C/g '\uFF0D').replace(/\u0358/g '\u030d')
@@ -586,10 +589,18 @@ function h (it)
   else if $?('body').hasClass('lang-m') then
       res.=replace(/\uFFF9/g '<span class="example-amis">').replace(/\uFFFB/g '</span><span class="example-fr">')
   else if $?('body').hasClass('lang-s') then
+      # debugger
+      mp3 = http "服務.意傳.台灣/%E6%96%87%E6%9C%AC%E7%9B%B4%E6%8E%A5%E5%90%88%E6%88%90?%E6%9F%A5%E8%A9%A2%E8%85%94%E5%8F%A3=Pangcah&%E6%9F%A5%E8%A9%A2%E8%AA%9E%E5%8F%A5=#res"
       res.=replace(/\uFFF9\uFFFA\uFFFB/g '')
-          .replace(/\uFFF9/g '<span class="amisnative">')
+          .replace(/\uFFF9/g """
+            <span class="amisnative">
+              <i itemType="http://schema.org/AudioObject" class="icon-play playAudio part-of-speech">
+              <meta itemProp="name" content="#{mp3 - /^.*\//}">
+              <meta itemProp="contentURL" content="#{mp3}"
+             
+          """)
           .replace(/\uFFFA/g '')
-          .replace(/\uFFFB/g '</span><br><span class="amismandarin">')
+          .replace(/\uFFFB/g '</i></span><br><span class="amismandarin">')
   else:
     res.=replace(/\uFFF9/g """
       <span class="ruby#{
@@ -623,6 +634,7 @@ groupBy = (prop, xs) ->
     pre.push xs.shift!
   return [pre] unless xs.length
   return [pre, ...groupBy(prop, xs)]
+
 function expand-def (def)
   def.replace(
     /^\s*<(\d)>\s*([介代副助動名歎嘆形連]?)/, (_, num, char) -> "#{
@@ -635,6 +647,7 @@ function expand-def (def)
   ).replace(
     /[（(](\d)[)）]/g (_, num) -> String.fromCharCode(0x2789 + parseInt num) + ' '
   ).replace(/\(/g, '（').replace(/\)/g, '）')
+
 function intersperse (elm, xs)
   list = []
   for x in xs
@@ -648,6 +661,7 @@ const Tones = { p:\ㆴ t:\ㆵ k:\ㆶ h:\ㆷ p$:"ㆴ\u0358" t$:"ㆵ\u0358" k$:"�
 re = -> [k for k of it].sort((x, y) -> y.length - x.length).join \|
 const C = re Consonants
 const V = re Vowels
+
 function trs2bpmf (LANG, trs)
   return ' ' if LANG is \h # TODO
   return trs if LANG is \a
@@ -672,6 +686,7 @@ const keyMap = {
   S: \"specific_to"
 }
 decodeLangPart = (LANG-OR-H, part='') ->
+  # debugger
   while part is /"`辨~\u20DE&nbsp`似~\u20DE"[^}]*},{"f":"([^（]+)[^"]*"/
     part.=replace /"`辨~\u20DE&nbsp`似~\u20DE"[^}]*},{"f":"([^（]+)[^"]*"/ '"辨\u20DE 似\u20DE $1"'
   part.=replace /"`(.)~\u20DE"[^}]*},{"f":"([^（]+)[^"]*"/g '"$1\u20DE $2"'
